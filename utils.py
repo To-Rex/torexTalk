@@ -19,47 +19,69 @@ def save_json(file_path: str, data: dict):
 def get_session_data_path(session_name: str) -> str:
     return os.path.join(DIRS["data"], f"{session_name}_data.json")
 
+
 def update_stats_cache(session_name: str, pairs: list):
     session_stats_cache[session_name] = {
         "total_questions": len(pairs),
         "total_responses": sum(len(pair["responses"]) for pair in pairs)
     }
 
+
 def modify_data(data: dict, operation: str, **kwargs):
     pairs = data["data"]["pairs"]
-    if operation == "add_question":
-        max_id = max((pair.get("id", 0) for pair in pairs), default=0)
-        new_pair = {"id": max_id + 1, "question": kwargs["question"], "responses": kwargs["responses"]}
-        pairs.append(new_pair)
-        return new_pair
-    elif operation == "add_response":
+    if operation == "add_response":
+        logger.info(f"Before adding response: {pairs}")
+        question = kwargs.get("question")
+        response = kwargs.get("response")
         for pair in pairs:
-            if pair["id"] == kwargs["question_id"]:
-                pair["responses"].append(kwargs["response"])
+            if pair["question"] == question:
+                pair["responses"].append(response)
+                logger.info(f"After adding response to question '{question}': {pair}")
                 return True
+        logger.warning(f"No pair found with question='{question}' in {pairs}")
         return False
+    elif operation == "add_question":
+        question = kwargs.get("question")
+        responses = kwargs.get("responses", [])
+        new_pair = {"question": question, "responses": responses}
+        pairs.append(new_pair)
+        logger.info(f"Added new question: {new_pair}")
+        return new_pair
     elif operation == "edit_question":
+        old_question = kwargs.get("question")
+        new_question = kwargs.get("new_question", old_question)
+        responses = kwargs.get("responses")
         for pair in pairs:
-            if pair["id"] == kwargs["question_id"]:
-                pair["question"] = kwargs.get("question", pair["question"])
-                if kwargs.get("responses") is not None:
-                    pair["responses"] = kwargs["responses"]
+            if pair["question"] == old_question:
+                pair["question"] = new_question
+                if responses is not None:
+                    pair["responses"] = responses
+                logger.info(f"Edited question '{old_question}' to '{new_question}': {pair}")
                 return True
         return False
     elif operation == "edit_response":
+        question = kwargs.get("question")
+        response_index = kwargs.get("response_index")
+        response = kwargs.get("response")
         for pair in pairs:
-            if pair["id"] == kwargs["question_id"] and kwargs["response_index"] < len(pair["responses"]):
-                pair["responses"][kwargs["response_index"]] = kwargs["response"]
+            if pair["question"] == question and response_index < len(pair["responses"]):
+                pair["responses"][response_index] = response
+                logger.info(f"Edited response for question '{question}': {pair}")
                 return True
         return False
     elif operation == "delete_question":
+        question = kwargs.get("question")
         initial_len = len(pairs)
-        data["data"]["pairs"] = [p for p in pairs if p["id"] != kwargs["question_id"]]
+        data["data"]["pairs"] = [p for p in pairs if p["question"] != question]
+        logger.info(f"Deleted question '{question}', remaining pairs: {data['data']['pairs']}")
         return len(pairs) != initial_len
     elif operation == "delete_response":
+        question = kwargs.get("question")
+        response_index = kwargs.get("response_index")
         for pair in pairs:
-            if pair["id"] == kwargs["question_id"] and kwargs["response_index"] < len(pair["responses"]):
-                pair["responses"].pop(kwargs["response_index"])
+            if pair["question"] == question and response_index < len(pair["responses"]):
+                pair["responses"].pop(response_index)
+                logger.info(f"Deleted response from question '{question}': {pair}")
                 return True, len(pair["responses"]) > 0
         return False, False
 

@@ -144,31 +144,66 @@ async def get_pairs(session_name: str):
     update_stats_cache(session_name, data["data"]["pairs"])
     return {"pairs": data["data"]["pairs"], "stats": session_stats_cache[session_name]}
 
+
 async def modify_session_data(session_name: str, operation: str, **kwargs):
     session_data_path = get_session_data_path(session_name)
     if not os.path.exists(session_data_path):
         raise HTTPException(status_code=404, detail="Session data not found")
     data = session_data_cache.get(session_name, load_json(session_data_path))
+    logger.info(f"Loaded data for {session_name}: {data}")
     result = modify_data(data, operation, **kwargs)
+    logger.info(f"Modified data for {session_name}: {data}")
     save_json(session_data_path, data)
+    logger.info(f"Saved data to {session_data_path}")
     session_data_cache[session_name] = data
     update_stats_cache(session_name, data["data"]["pairs"])
     await update_session_bot(session_name, session_data_path)
     return result
 
+
 @router.post("/add_question/{session_name}")
 async def add_question(session_name: str, request: QuestionRequest):
     if not request.responses:
         raise HTTPException(status_code=400, detail="At least one response required")
-    new_question = await modify_session_data(session_name, "add_question", question=request.question,
-                                             responses=request.responses)
+    new_question = await modify_session_data(session_name, "add_question", question=request.question, responses=request.responses)
     return {"message": f"Question added to {session_name}", "question": new_question}
+
+async def modify_session_data(session_name: str, operation: str, **kwargs):
+    session_data_path = get_session_data_path(session_name)
+    if not os.path.exists(session_data_path):
+        raise HTTPException(status_code=404, detail="Session data not found")
+    data = session_data_cache.get(session_name, load_json(session_data_path))
+    logger.info(f"Loaded data for {session_name}: {data}")
+    result = modify_data(data, operation, **kwargs)
+    logger.info(f"Modified data for {session_name}: {data}")
+    save_json(session_data_path, data)
+    logger.info(f"Saved data to {session_data_path}")
+    session_data_cache[session_name] = data
+    update_stats_cache(session_name, data["data"]["pairs"])
+    await update_session_bot(session_name, session_data_path)
+    return result
 
 @router.post("/add_response/{session_name}/{question_id}")
 async def add_response(session_name: str, question_id: int, request: ResponseRequest):
-    if not await modify_session_data(session_name, "add_response", question_id=question_id, response=request.response):
-        raise HTTPException(status_code=404, detail="Question not found")
+    # Session mavjudligini tekshirish
+    session_data_path = get_session_data_path(session_name)
+    if not os.path.exists(session_data_path):
+        raise HTTPException(status_code=404, detail="Session data not found")
+
+    # modify_session_data ni chaqirish
+    result = await modify_session_data(session_name, "add_response", question_id=question_id, response=request.response)
+    if not result:
+        raise HTTPException(status_code=404, detail=f"Question with ID {question_id} not found in {session_name}")
+
     return {"message": f"Response added to question {question_id} in {session_name}"}
+
+@router.post("/add_response/{session_name}")
+async def add_response(session_name: str, request: ResponseRequest, question: str = None):
+    if not question:
+        raise HTTPException(status_code=400, detail="Question parameter is required")
+    if not await modify_session_data(session_name, "add_response", question=question, response=request.response):
+        raise HTTPException(status_code=404, detail=f"Question '{question}' not found in {session_name}")
+    return {"message": f"Response added to question '{question}' in {session_name}"}
 
 @router.post("/add_session_data")
 async def add_session_data(request: SessionDataRequest):
@@ -211,7 +246,6 @@ async def export_all_sessions():
         media_type="application/zip",
         headers={"Content-Disposition": "attachment; filename=sessions_archive.zip"}
     )
-
 
 @router.post("/import_session/")
 async def import_session(file: UploadFile = File(...)):
@@ -283,7 +317,6 @@ async def import_sessions(file: UploadFile = File(...)):
     logger.info(f"Imported and started sessions: {imported_sessions}")
     return {"message": "Sessions imported and started", "sessions": imported_sessions}
 
-
 @router.get("/export_session/{session_name}")
 async def export_sessions(session_name: str = None, request: Request = None):
     sessions_dir = DIRS["sessions"]
@@ -328,12 +361,14 @@ async def import_session(session_name: str, file: UploadFile = File(...)):
     await update_session_bot(session_name, session_data_path)
     return {"message": f"Session {session_name} imported"}
 
-@router.put("/edit_question/{session_name}/{question_id}")
-async def edit_question(session_name: str, question_id: int, request: EditQuestionRequest):
-    if not await modify_session_data(session_name, "edit_question", question_id=question_id, question=request.question,
-                                     responses=request.responses):
-        raise HTTPException(status_code=404, detail="Question not found")
-    return {"message": f"Question {question_id} edited in {session_name}"}
+
+@router.put("/edit_question/{session_name}")
+async def edit_question(session_name: str, request: EditQuestionRequest, old_question: str = None):
+    if not old_question:
+        raise HTTPException(status_code=400, detail="Old question parameter is required")
+    if not await modify_session_data(session_name, "edit_question", question=old_question, new_question=request.question, responses=request.responses):
+        raise HTTPException(status_code=404, detail=f"Question '{old_question}' not found")
+    return {"message": f"Question '{old_question}' edited in {session_name}"}
 
 @router.put("/edit_response/{session_name}/{question_id}/{response_index}")
 async def edit_response(session_name: str, question_id: int, response_index: int, request: ResponseRequest):
@@ -342,12 +377,16 @@ async def edit_response(session_name: str, question_id: int, response_index: int
         raise HTTPException(status_code=404, detail="Response not found")
     return {"message": f"Response {response_index} edited for question {question_id} in {session_name}"}
 
-@router.delete("/delete_question/{session_name}/{question_id}")
-async def delete_question(session_name: str, question_id: int):
-    if not await modify_session_data(session_name, "delete_question", question_id=question_id):
-        raise HTTPException(status_code=404, detail="Question not found")
-    return {"message": f"Question {question_id} deleted from {session_name}"}
 
+
+
+@router.delete("/delete_question/{session_name}")
+async def delete_question(session_name: str, question: str = None):
+    if not question:
+        raise HTTPException(status_code=400, detail="Question parameter is required")
+    if not await modify_session_data(session_name, "delete_question", question=question):
+        raise HTTPException(status_code=404, detail=f"Question '{question}' not found")
+    return {"message": f"Question '{question}' deleted from {session_name}"}
 @router.delete("/delete_response/{session_name}/{question_id}/{response_index}")
 async def delete_response(session_name: str, question_id: int, response_index: int):
     success, has_responses = await modify_session_data(session_name, "delete_response", question_id=question_id,

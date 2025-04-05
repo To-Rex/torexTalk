@@ -1,3 +1,5 @@
+#handlers.py
+
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from utils import load_json, update_stats_cache, session_data_cache, get_session_data_path
