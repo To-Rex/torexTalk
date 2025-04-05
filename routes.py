@@ -53,22 +53,40 @@ async def get_sessions(include_photos: bool = True):
                          for name in inactive_sessions)
     return {"sessions": sessions_info}
 
-@router.post("/start_session/{session_name}")
-async def start_session(session_name: str):
-    if session_name in active_clients:
-        return {"message": f"Session {session_name} is already active"}
-    session_file = os.path.join(DIRS["sessions"], f"{session_name}.session")
-    if not os.path.exists(session_file):
-        raise HTTPException(status_code=404, detail="Session file not found")
-    await start_client(session_name)
-    return {"message": f"Session {session_name} started"}
-
-
 
 @router.post("/stop_session/{session_name}")
 async def stop_session(session_name: str):
-    return await stop_client(session_name)
-    return {"message": f"Session {session_name} stopped"}
+    logger.info(f"Stop session requested for {session_name}. Active clients: {list(active_clients.keys())}")
+    if session_name not in active_clients:
+        logger.warning(f"{session_name} faol emas. Faol sessiyalar: {list(active_clients.keys())}")
+        return {"message": f"Sessiya {session_name} faol emas"}
+    result = await stop_clientd(session_name)
+    return result
+
+
+async def stop_clientd(session_name: str):
+    if session_name not in active_clients:
+        logger.warning(f"{session_name} faol emas ichki tekshiruvda. Faol sessiyalar: {list(active_clients.keys())}")
+        return {"message": f"Sessiya {session_name} faol emas"}
+
+    client = active_clients[session_name]
+    try:
+        await client.stop()  # disconnect() o'rniga stop() ishlatamiz
+        del active_clients[session_name]
+        logger.info(f"{session_name} sessiyasi to'xtatildi. Active clients after stop: {list(active_clients.keys())}")
+        return {"message": f"Sessiya {session_name} to'xtatildi"}
+    except Exception as e:
+        logger.error(f"Sessiyani to'xtatishda xato: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ichki server xatosi: {str(e)}")
+
+
+
+
+@router.post("/start_session/{session_name}")
+async def start_session(session_name: str):
+    result = await start_client(session_name)
+    return result
+
 
 @router.post("/start_login")
 async def start_login(request: LoginRequest, req: Request):
@@ -351,40 +369,44 @@ async def delete_session_data(session_name: str):
     await update_session_bot(session_name, session_data_path)
     return {"message": f"Session data for {session_name} reset"}
 
-
-
 @router.delete("/delete_session/{session_name}")
 async def delete_session(session_name: str):
     session_file = os.path.join(DIRS["sessions"], f"{session_name}.session")
     session_data_path = get_session_data_path(session_name)
 
-    # Agar sessiya faol bo‘lsa, uni to‘xtatamiz
+    logger.info(f"Starting deletion for session {session_name}")
+
+    # 1. Sessiyani to‘xtatish
     if session_name in active_clients:
         try:
-            await stop_client(session_name)
-            # Sessiyaning to‘liq yopilishini kutamiz
-            await asyncio.sleep(1)  # 1 soniya kutish (fayl qulfi ochilishi uchun)
+            await stop_clientd(session_name)
+            logger.info(f"Active session {session_name} stopped")
         except Exception as e:
             logger.error(f"Failed to stop client {session_name}: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to stop session: {str(e)}")
 
-    # Sessiya faylini o‘chirishga urinamiz
+    # 2. Fayllarni mavjudligini tekshirish va o‘chirish
+    if not os.path.exists(session_file) and not os.path.exists(session_data_path):
+        logger.warning(f"Session {session_name} not found (no session or data file)")
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Sessiya faylini o‘chirish
     if os.path.exists(session_file):
         try:
             os.remove(session_file)
+            logger.info(f"Session file {session_file} deleted")
         except PermissionError as e:
             logger.error(f"Permission denied while deleting {session_file}: {e}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Xatolik yuz berdi. Sessiya fayli o'chirishga urinishda xatolik yuz berdi: {str(e)}"
+                detail=f"Could not delete session file due to permission error: {str(e)}"
             )
-    else:
-        raise HTTPException(status_code=404, detail="Session file not found")
 
-    # Sessiya ma’lumotlarini o‘chiramiz
+    # Ma’lumot faylini o‘chirish
     if os.path.exists(session_data_path):
         try:
             os.remove(session_data_path)
+            logger.info(f"Session data file {session_data_path} deleted")
         except PermissionError as e:
             logger.error(f"Permission denied while deleting {session_data_path}: {e}")
             raise HTTPException(
@@ -392,11 +414,19 @@ async def delete_session(session_name: str):
                 detail=f"Could not delete session data file due to permission error: {str(e)}"
             )
 
-    # Keshdan o‘chiramiz
+    # 3. Keshni tozalash
     if session_name in session_data_cache:
         del session_data_cache[session_name]
+        logger.info(f"Session {session_name} removed from data cache")
     if session_name in session_stats_cache:
         del session_stats_cache[session_name]
+        logger.info(f"Session {session_name} removed from stats cache")
 
-    logger.info(f"Session {session_name} deleted")
+    logger.info(f"Session {session_name} deleted successfully")
     return {"message": f"Session {session_name} deleted"}
+
+@router.get("/check_session/{session_name}")
+async def check_session(session_name: str):
+    status = "active" if session_name in active_clients else "inactive"
+    logger.info(f"{session_name} sessiyasi holati: {status}")
+    return {"session_name": session_name, "status": status}
