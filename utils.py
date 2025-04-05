@@ -60,3 +60,14 @@ def modify_data(data: dict, operation: str, **kwargs):
                 pair["responses"].pop(kwargs["response_index"])
                 return True, len(pair["responses"]) > 0
         return False, False
+
+
+# Sessiyani to‘xtatish funksiyasi
+async def stop_client(session_name: str):
+    if session_name not in active_clients:
+        raise HTTPException(status_code=404, detail="Session is not active")
+    client = active_clients[session_name]
+    await client.stop()
+    del active_clients[session_name]
+    logger.info(f"Client stopped for {session_name}")
+    return {"message": f"Session {session_name} stopped"}

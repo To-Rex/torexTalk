@@ -5,7 +5,7 @@ from pyrogram.errors import PhoneCodeInvalid, SessionPasswordNeeded, PhoneNumber
 from models import (LoginRequest, CodeRequest, PasswordRequest, QuestionRequest,
                    ResponseRequest, EditQuestionRequest, SessionDataRequest)
 from utils import (load_json, save_json, get_session_data_path, modify_data, session_data_cache,
-                  session_stats_cache, update_stats_cache)
+                  session_stats_cache, update_stats_cache, stop_client)
 from client_manager import active_clients, start_client, cache_storage
 from handlers import update_session_bot
 from config import DIRS, logger, DEFAULT_DATA_PATH
@@ -50,6 +50,24 @@ async def get_sessions(include_photos: bool = True):
                               get_session_data_path(name)) else None}
                          for name in inactive_sessions)
     return {"sessions": sessions_info}
+
+# Yangi endpointlar
+@router.post("/start_session/{session_name}")
+async def start_session(session_name: str):
+    if session_name in active_clients:
+        return {"message": f"Session {session_name} is already active"}
+    session_file = os.path.join(DIRS["sessions"], f"{session_name}.session")
+    if not os.path.exists(session_file):
+        raise HTTPException(status_code=404, detail="Session file not found")
+    await start_client(session_name)
+    return {"message": f"Session {session_name} started"}
+
+@router.post("/stop_session/{session_name}")
+async def stop_session(session_name: str):
+    await stop_client(session_name)
+    return {"message": f"Session {session_name} stopped"}
+
+# Mavjud `start_client` funksiyasini saqlab qolamiz, lekin uni takrorlashning hojati yo‘q
 
 @router.post("/start_login")
 async def start_login(request: LoginRequest, req: Request):
