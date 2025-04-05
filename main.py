@@ -12,7 +12,7 @@ import uvicorn
 import logging
 from dotenv import load_dotenv
 import os
-from config import DIRS  # DIRS ni config dan import qilamiz
+from config import DIRS
 
 # Load environment variables
 load_dotenv()
@@ -22,10 +22,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Rate limiting configuration from .env
-RATE_LIMIT = int(os.getenv("RATE_LIMIT", 100))  # Default to 100 if not set
-TIME_WINDOW = int(os.getenv("TIME_WINDOW", 60))  # Default to 60 if not set
+RATE_LIMIT = int(os.getenv("RATE_LIMIT", 100))
+TIME_WINDOW = int(os.getenv("TIME_WINDOW", 60))
 rate_limit_storage: dict = {}
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -36,14 +35,18 @@ async def lifespan(app: FastAPI):
         logger.info("No session files found in sessions directory")
     else:
         logger.info(f"Found session files: {session_files}")
-        results = await asyncio.gather(*[start_client(name) for name in session_files], return_exceptions=True)
+        tasks = [start_client(name) for name in session_files]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
         for name, result in zip(session_files, results):
             if isinstance(result, Exception):
-                logger.error(f"Failed to start session {name}: {result}")
+                logger.error(f"Failed to start session {name}: {str(result)}")
+            else:
+                logger.info(f"Successfully started session {name}")
 
     yield
 
     # Cleanup
+    logger.info("Shutting down observers and clients")
     for observer in observers.values():
         try:
             observer.stop()
@@ -51,7 +54,7 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"Error stopping observer: {e}")
     await asyncio.gather(*[client.stop() for client in active_clients.values()], return_exceptions=True)
-
+    logger.info("Shutdown complete")
 
 # Initialize FastAPI app
 app = FastAPI(lifespan=lifespan)
@@ -59,7 +62,7 @@ app = FastAPI(lifespan=lifespan)
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8001", "http://localhost", "*"],  # "*" for testing
+    allow_origins=["http://localhost:8001", "http://localhost", "*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,4 +1,4 @@
-#client_manager.py
+# client_manager.py
 
 import os
 from pyrogram import Client, filters
@@ -14,19 +14,23 @@ cache_storage: dict = {}
 message_timestamps: dict = {}
 login_states: dict = {}
 
+
 async def start_client(session_name: str):
     if session_name in active_clients:
         await active_clients[session_name].stop()
         del active_clients[session_name]
 
+    logger.info(f"Attempting to initialize client for {session_name}")
     client = Client(session_name, api_id=API_ID, api_hash=API_HASH, workdir=DIRS["sessions"])
     session_data_path = get_session_data_path(session_name)
     if not os.path.exists(session_data_path):
+        logger.info(f"Session data not found for {session_name}, creating default")
         data = load_json(DEFAULT_DATA_PATH)
         save_json(session_data_path, data)
         session_data_cache[session_name] = data
         update_stats_cache(session_name, data["data"]["pairs"])
     from handlers import update_session_bot
+    logger.info(f"Updating session bot for {session_name}")
     await update_session_bot(session_name, session_data_path)
 
     @client.on_message((filters.text | filters.voice) & filters.private)
@@ -49,6 +53,11 @@ async def start_client(session_name: str):
         await client.send_message(message.chat.id, response, reply_to_message_id=message.id if len(
             timestamps) >= REPLY_THRESHOLD and random.random() < 0.5 else None)
 
-    await client.start()
-    active_clients[session_name] = client
-    logger.info(f"Client started for {session_name}")
+    try:
+        logger.info(f"Starting client for {session_name}")
+        await client.start()
+        active_clients[session_name] = client
+        logger.info(f"Client successfully started for {session_name}")
+    except Exception as e:
+        logger.error(f"Failed to start client {session_name}: {str(e)}")
+        raise

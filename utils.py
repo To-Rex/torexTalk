@@ -1,5 +1,3 @@
-#utils.py
-
 import json
 import os
 from cachetools import LRUCache
@@ -19,13 +17,11 @@ def save_json(file_path: str, data: dict):
 def get_session_data_path(session_name: str) -> str:
     return os.path.join(DIRS["data"], f"{session_name}_data.json")
 
-
 def update_stats_cache(session_name: str, pairs: list):
     session_stats_cache[session_name] = {
         "total_questions": len(pairs),
         "total_responses": sum(len(pair["responses"]) for pair in pairs)
     }
-
 
 def modify_data(data: dict, operation: str, **kwargs):
     pairs = data["data"]["pairs"]
@@ -85,8 +81,6 @@ def modify_data(data: dict, operation: str, **kwargs):
                 return True, len(pair["responses"]) > 0
         return False, False
 
-
-# Sessiyani to‘xtatish funksiyasi
 async def stop_client(session_name: str):
     if session_name not in active_clients:
         raise HTTPException(status_code=404, detail="Session is not active")
