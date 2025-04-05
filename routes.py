@@ -1,7 +1,9 @@
+#routes.py
+
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File
+from fastapi.responses import FileResponse, Response
 from pyrogram import Client
 from pyrogram.errors import PhoneCodeInvalid, SessionPasswordNeeded, PhoneNumberInvalid
-
 from models import (LoginRequest, CodeRequest, PasswordRequest, QuestionRequest,
                    ResponseRequest, EditQuestionRequest, SessionDataRequest)
 from utils import (load_json, save_json, get_session_data_path, modify_data, session_data_cache,
@@ -12,6 +14,8 @@ from config import DIRS, logger, DEFAULT_DATA_PATH
 import json
 import asyncio
 import os
+import zipfile
+from io import BytesIO
 
 router = APIRouter()
 
@@ -51,7 +55,6 @@ async def get_sessions(include_photos: bool = True):
                          for name in inactive_sessions)
     return {"sessions": sessions_info}
 
-# Yangi endpointlar
 @router.post("/start_session/{session_name}")
 async def start_session(session_name: str):
     if session_name in active_clients:
@@ -66,8 +69,6 @@ async def start_session(session_name: str):
 async def stop_session(session_name: str):
     await stop_client(session_name)
     return {"message": f"Session {session_name} stopped"}
-
-# Mavjud `start_client` funksiyasini saqlab qolamiz, lekin uni takrorlashning hojati yo‘q
 
 @router.post("/start_login")
 async def start_login(request: LoginRequest, req: Request):
@@ -186,12 +187,136 @@ async def add_session_data(request: SessionDataRequest):
     await update_session_bot(request.session_name, session_data_path)
     return {"message": f"Session data added to {request.session_name}"}
 
-@router.get("/export_session/{session_name}")
-async def export_session(session_name: str):
+@router.get("/export_all_sessions")
+async def export_all_sessions():
+    sessions_dir = DIRS["sessions"]
+    session_files = [f for f in os.listdir(sessions_dir) if f.endswith(".session")]
+
+    if not session_files:
+        logger.info("No session files found in sessions directory")
+        raise HTTPException(status_code=404, detail="No session files found in sessions directory")
+
+    # ZIP faylni xotirada yaratish
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        for session_file in session_files:
+            file_path = os.path.join(sessions_dir, session_file)
+            zip_file.write(file_path, session_file)
+
+    buffer.seek(0)
+    logger.info(f"Exported all sessions: {session_files}")
+
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=sessions_archive.zip"}
+    )
+
+
+@router.post("/import_session/")
+async def import_session(file: UploadFile = File(...)):
+    sessions_dir = DIRS["sessions"]
+
+    # Fayl nomidan session_name ni olish
+    session_name = file.filename.replace(".session", "")  # .session kengaytmasini olib tashlaymiz
+    session_file = os.path.join(sessions_dir, f"{session_name}.session")
     session_data_path = get_session_data_path(session_name)
+
+    # .session faylni saqlash
+    with open(session_file, "wb") as f:
+        f.write(await file.read())
+
+    # Session data faylini yaratish (agar mavjud bo'lmasa)
     if not os.path.exists(session_data_path):
-        raise HTTPException(status_code=404, detail="Session data not found")
-    return session_data_cache.get(session_name, load_json(session_data_path))
+        default_data = load_json(DEFAULT_DATA_PATH, default={"data": {"pairs": []}})
+        save_json(session_data_path, default_data)
+        session_data_cache[session_name] = default_data
+        update_stats_cache(session_name, default_data["data"]["pairs"])
+        logger.info(f"Session data created for {session_name} at {session_data_path}")
+
+    # Sessiyani avtomatik ishga tushirish
+    try:
+        await start_client(session_name)
+        logger.info(f"Session {session_name} imported and started")
+        return {"message": f"Session {session_name} imported and started"}
+    except Exception as e:
+        logger.error(f"Failed to start session {session_name}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to start session: {str(e)}")
+
+@router.post("/import_sessions")
+async def import_sessions(file: UploadFile = File(...)):
+    sessions_dir = DIRS["sessions"]
+    imported_sessions = []
+
+    # ZIP faylni xotirada ochish
+    buffer = BytesIO(await file.read())
+    with zipfile.ZipFile(buffer, "r") as zip_file:
+        for file_name in zip_file.namelist():
+            if file_name.endswith(".session"):
+                session_name = file_name.replace(".session", "")
+                session_file = os.path.join(sessions_dir, file_name)
+                session_data_path = get_session_data_path(session_name)
+
+                # .session faylni saqlash
+                with open(session_file, "wb") as f:
+                    f.write(zip_file.read(file_name))
+
+                # Session data faylini yaratish (agar mavjud bo'lmasa)
+                if not os.path.exists(session_data_path):
+                    default_data = load_json(DEFAULT_DATA_PATH, default={"data": {"pairs": []}})
+                    save_json(session_data_path, default_data)
+                    session_data_cache[session_name] = default_data
+                    update_stats_cache(session_name, default_data["data"]["pairs"])
+                    logger.info(f"Session data created for {session_name} at {session_data_path}")
+
+                # Sessiyani avtomatik ishga tushirish
+                try:
+                    await start_client(session_name)
+                    imported_sessions.append(session_name)
+                except Exception as e:
+                    logger.error(f"Failed to start session {session_name}: {e}")
+                    # Xato bo'lsa ham davom etamiz, lekin log qoldiramiz
+
+    if not imported_sessions:
+        raise HTTPException(status_code=500, detail="No sessions were successfully imported")
+
+    logger.info(f"Imported and started sessions: {imported_sessions}")
+    return {"message": "Sessions imported and started", "sessions": imported_sessions}
+
+
+@router.get("/export_session/{session_name}")
+async def export_sessions(session_name: str = None, request: Request = None):
+    sessions_dir = DIRS["sessions"]
+    session_files = [f for f in os.listdir(sessions_dir) if f.endswith(".session")]
+
+    if not session_files:
+        logger.info("No session files found in sessions directory")
+        raise HTTPException(status_code=404, detail="No session files found in sessions directory")
+
+    logger.info(f"Found session files: {session_files}")
+
+    if session_name:
+        # Bitta sessiya faylini yuklash
+        session_file = os.path.join(sessions_dir, f"{session_name}.session")
+        if not os.path.exists(session_file):
+            logger.error(f"Session file not found: {session_file}")
+            raise HTTPException(status_code=404, detail=f"Session {session_name} not found")
+        return FileResponse(
+            path=session_file,
+            filename=f"{session_name}.session",
+            media_type="application/octet-stream"
+        )
+    else:
+        # Joriy server URL-ni avtomatik olish
+        base_url = str(request.url).rstrip("/")  # So‘rov URL-ni oladi va oxirgi / ni olib tashlaydi
+        session_links = [
+            {
+                "session_name": session_file.replace(".session", ""),
+                "download_url": f"{base_url}/{session_file.replace('.session', '')}"
+            }
+            for session_file in session_files
+        ]
+        return {"sessions": session_links}
 
 @router.post("/import_session/{session_name}")
 async def import_session(session_name: str, file: UploadFile = File(...)):

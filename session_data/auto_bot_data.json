@@ -455,21 +455,6 @@
                     "Ajoyib",
                     "Ajoyib, boloradi"
                 ]
-            },
-            {
-                "id": 1,
-                "question": "tinchmi",
-                "responses": [
-                    "salom"
-                ]
-            },
-            {
-                "id": 1,
-                "question": "salomlar",
-                "responses": [
-                    "Assalomu alaykum",
-                    "Salom qalay"
-                ]
             }
         ]
     }

@@ -1,5 +1,4 @@
 import os
-
 from pyrogram import Client, filters
 from config import API_ID, API_HASH, DIRS, REPLY_INTERVAL, REPLY_THRESHOLD, logger, DEFAULT_DATA_PATH
 from utils import load_json, save_json, get_session_data_path, session_data_cache, update_stats_cache
@@ -7,7 +6,6 @@ from handlers import session_bots
 import asyncio
 import random
 import time
-from pyrogram.errors import SessionPasswordNeeded, PhoneNumberInvalid, PhoneCodeInvalid
 
 active_clients: dict = {}
 cache_storage: dict = {}
