@@ -110,7 +110,7 @@ def modify_data(data: dict, operation: str, **kwargs):
         logger.warning(f"'{question}' savoli yoki javob indeksi topilmadi")
         return False, False
 
-# Sessiyani to'xtatish funksiyasi
+
 async def stop_client(session_name: str):
     """Berilgan sessiya nomidagi faol mijozni to'xtatadi."""
     try:
@@ -130,6 +130,7 @@ async def stop_client(session_name: str):
     except Exception as e:
         logger.error(f"Sessiyani to'xtatishda xato: {str(e)}")
         raise HTTPException(status_code=500, detail="Ichki server xatosi")
+
 
 # (Qo'shimcha): Sessiyani boshlash uchun misol funksiya
 async def start_client(session_name: str, client):

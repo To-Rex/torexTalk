@@ -14,6 +14,7 @@ import asyncio
 import os
 import zipfile
 from io import BytesIO
+import psutil
 
 router = APIRouter()
 
@@ -350,3 +351,53 @@ async def delete_session_data(session_name: str):
     update_stats_cache(session_name, data["data"]["pairs"])
     await update_session_bot(session_name, session_data_path)
     return {"message": f"Session data for {session_name} reset"}
+
+
+
+@router.delete("/delete_session/{session_name}")
+async def delete_session(session_name: str):
+    session_file = os.path.join(DIRS["sessions"], f"{session_name}.session")
+    session_data_path = get_session_data_path(session_name)
+
+    # Agar sessiya faol bo‘lsa, uni to‘xtatamiz
+    if session_name in active_clients:
+        try:
+            await stop_client(session_name)
+            # Sessiyaning to‘liq yopilishini kutamiz
+            await asyncio.sleep(1)  # 1 soniya kutish (fayl qulfi ochilishi uchun)
+        except Exception as e:
+            logger.error(f"Failed to stop client {session_name}: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to stop session: {str(e)}")
+
+    # Sessiya faylini o‘chirishga urinamiz
+    if os.path.exists(session_file):
+        try:
+            os.remove(session_file)
+        except PermissionError as e:
+            logger.error(f"Permission denied while deleting {session_file}: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Xatolik yuz berdi. Sessiya fayli o'chirishga urinishda xatolik yuz berdi: {str(e)}"
+            )
+    else:
+        raise HTTPException(status_code=404, detail="Session file not found")
+
+    # Sessiya ma’lumotlarini o‘chiramiz
+    if os.path.exists(session_data_path):
+        try:
+            os.remove(session_data_path)
+        except PermissionError as e:
+            logger.error(f"Permission denied while deleting {session_data_path}: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Could not delete session data file due to permission error: {str(e)}"
+            )
+
+    # Keshdan o‘chiramiz
+    if session_name in session_data_cache:
+        del session_data_cache[session_name]
+    if session_name in session_stats_cache:
+        del session_stats_cache[session_name]
+
+    logger.info(f"Session {session_name} deleted")
+    return {"message": f"Session {session_name} deleted"}

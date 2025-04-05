@@ -61,3 +61,4 @@ async def start_client(session_name: str):
     except Exception as e:
         logger.error(f"Failed to start client {session_name}: {str(e)}")
         raise
+
