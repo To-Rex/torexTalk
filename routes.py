@@ -63,9 +63,11 @@ async def start_session(session_name: str):
     await start_client(session_name)
     return {"message": f"Session {session_name} started"}
 
+
+
 @router.post("/stop_session/{session_name}")
 async def stop_session(session_name: str):
-    await stop_client(session_name)
+    return await stop_client(session_name)
     return {"message": f"Session {session_name} stopped"}
 
 @router.post("/start_login")
