@@ -62,7 +62,10 @@ app = FastAPI(lifespan=lifespan)
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8001", "http://localhost", "*"],
+   # allow_origins=["http://localhost:8001", "http://localhost", "*"],
+    #Access-Control-Allow-Origin: *
+
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -72,4 +75,6 @@ app.add_middleware(
 app.include_router(router)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    #uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, port=8001)
+    #uvicorn.run(app)

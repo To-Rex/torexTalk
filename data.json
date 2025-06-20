@@ -164,46 +164,6 @@
                 ]
             },
             {
-                "question": "kot",
-                "responses": [
-                    "O`zing kot",
-                    "Dalbayopee",
-                    "Pidaraz",
-                    "Dalbayopee, Pidaraz",
-                    "Dalbayopee, pidaraz o`zing kot"
-                ]
-            },
-            {
-                "question": "Dalbayop",
-                "responses": [
-                    "O`zing Dalbayop",
-                    "Kot",
-                    "Pidaraz",
-                    "Kot, Pidaraz",
-                    "Kot, pidaraz o`zing Dalbayop"
-                ]
-            },
-            {
-                "question": "Pidaraz",
-                "responses": [
-                    "O`zing Pidaraz",
-                    "kot",
-                    "dalbayop",
-                    "Kot, Dalbayop",
-                    "Kot, Dalbayop o`zing Pidaraz"
-                ]
-            },
-            {
-                "question": "Kotuna",
-                "responses": [
-                    "O`zing Kotuna",
-                    "Dalbayop",
-                    "Pidaraz",
-                    "dalbayop, Pidaraz",
-                    "Dalbayop, pidaraz o`zing Kotuna"
-                ]
-            },
-            {
                 "question": "Blee",
                 "responses": [
                     "Ha",
@@ -224,40 +184,11 @@
                 ]
             },
             {
-                "question": "Aldama kot",
-                "responses": [
-                    "O`zing kot",
-                    "Dalbayope",
-                    "Pidaraze",
-                    "dalbayop, Pidaraz",
-                    "Dalbayop, pidaraz o`zing kot"
-                ]
-            },
-            {
-                "question": "Aldama kot",
-                "responses": [
-                    "O`zing kot",
-                    "Dalbayope",
-                    "Pidaraze",
-                    "dalbayop, Pidaraz",
-                    "Dalbayop, pidaraz o`zing kot"
-                ]
-            },
-            {
                 "question": "Mayli",
                 "responses": [
                     "Maylida",
                     "Ha maylida",
                     "Mayli Mayli"
-                ]
-            },
-            {
-                "question": "mazzami",
-                "responses": [
-                    "vapshee",
-                    "Kayp",
-                    "Vapshee, Mazza",
-                    "Vapshee, Mazza, Kayp"
                 ]
             },
             {
@@ -333,14 +264,6 @@
                 ]
             },
             {
-                "question": "chumo",
-                "responses": [
-                    "pidaraz",
-                    "ozing chumo",
-                    "dalbayop"
-                ]
-            },
-            {
                 "question": "botmisan",
                 "responses": [
                     "yo`ge",
@@ -381,13 +304,6 @@
                     "Bilmasam",
                     "Bilmasam Inomjon kaltak yepti😄",
                     "To`risi xabarim yo`q"
-                ]
-            },
-            {
-                "question": "Asel",
-                "responses": [
-                    "Exxx",
-                    "Chopvorganman"
                 ]
             },
             {

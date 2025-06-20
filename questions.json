@@ -1,0 +1,39 @@
+[
+  {
+    "question": "nima qivossan",
+    "normalized": true,
+    "category": "casual",
+    "responses": [
+      "Bekorchilik",
+      "Itday ishlayapman"
+    ]
+  },
+  {
+    "question": "mazzami",
+    "normalized": true,
+    "category": "casual",
+    "responses": [
+      "Zo‘r bo‘lyapti",
+      "Mazzami deysanmi? Bombaaa!"
+    ]
+  },
+  {
+    "question": "shu",
+    "normalized": true,
+    "category": "neutral",
+    "responses": [
+      "Ha shu",
+      "To‘g‘ri topding"
+    ]
+  },
+  {
+    "question": "qattasan",
+    "normalized": true,
+    "category": "casual",
+    "responses": [
+      "Uyda",
+      "Ko‘chadaman",
+      "Ishdaman"
+    ]
+  },
+]

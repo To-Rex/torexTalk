@@ -17,6 +17,11 @@ from io import BytesIO
 
 router = APIRouter()
 
+@router.get("/")
+def read_root():
+    return {"message": "Hello from USFBU project!"}
+
+
 @router.get("/get_sessions")
 async def get_sessions(include_photos: bool = True):
     async def get_session_info(name: str, client):
